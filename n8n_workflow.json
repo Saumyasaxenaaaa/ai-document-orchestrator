@@ -1,0 +1,120 @@
+{
+  "name": "AI Document Orchestrator - Conditional Email",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "ai-document-orchestrator-webhook",
+        "httpMethod": "POST"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "temperature": 0.0,
+        "systemMessage": "You are an assistant that composes a final analytical answer and drafts an email based on the incoming document context.",
+        "userMessage": "Use the incoming JSON: {{ $json }}\nProvide:\n1) final_answer (short)\n2) email_body (friendly, contextual)\n3) send_flag (true/false) — set true if urgent items found"
+      },
+      "name": "AI Agent",
+      "type": "n8n-nodes-base.openai",
+      "typeVersion": 1,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json[\"send_flag\"]}}",
+              "operation": "equal",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "IF Send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 240]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{$json[\"from\"] || 'alerts@example.com'}}",
+        "toEmail": "={{$json[\"recipient\"]}}",
+        "subject": "Document Alert: Action Required",
+        "text": "={{$json[\"email_body\"]}}"
+      },
+      "name": "Send Email",
+      "type": "n8n-nodes-base.sendEmail",
+      "typeVersion": 1,
+      "position": [1150, 240]
+    },
+    {
+      "parameters": {
+        "responseCode": 200,
+        "responseMode": "onReceived"
+        
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1400, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "IF Send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Send?": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
